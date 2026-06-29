@@ -1,26 +1,11 @@
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const puppeteer = require('puppeteer'); // Nova dependência
 const cors = require('cors');
 
 const app = express();
 app.use(express.static('public'));
 app.use(cors());
-
-// Função de busca via Navegador Real (Puppeteer)
-async function fetchWithPuppeteer(url) {
-    const browser = await puppeteer.launch({ headless: "new" }); // "new" para performance
-    const page = await browser.newPage();
-    
-    // Finge ser um navegador real
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
-    const html = await page.content();
-    await browser.close();
-    return html;
-}
 
 app.get('/api/preview', async (req, res) => {
     const targetUrl = req.query.url;
@@ -34,7 +19,6 @@ app.get('/api/preview', async (req, res) => {
         } catch (err) {
             // Se falhar (bloqueio ou erro), tenta com Puppeteer
             console.log('Axios falhou, tentando via Puppeteer...');
-            html = await fetchWithPuppeteer(targetUrl);
         }
 
         const $ = cheerio.load(html);
