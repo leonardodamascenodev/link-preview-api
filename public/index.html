@@ -644,7 +644,7 @@
             setLoading(true);
 
             try {
-                const response = await fetch(`/api/preview?url=${encodeURIComponent(url)}`);
+                const response = await fetch('/api/preview?url=' + encodeURIComponent(url))
 
                 if (!response.ok) {
                     let errorMsg = `Erro ${response.status}: Não foi possível processar esta URL.`;
