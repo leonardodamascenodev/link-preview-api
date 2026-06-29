@@ -53,4 +53,4 @@ app.get('/api/preview', async (req, res) => {
     }
 });
 
-app.listen(3000, () => console.log('Servidor rodando com Puppeteer!'));
+module.exports = app;
