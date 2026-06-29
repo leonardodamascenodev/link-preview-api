@@ -4,6 +4,8 @@ const cheerio = require('cheerio');
 const cors = require('cors');
 
 const app = express();
+const express = require('express');
+const path = require('path'); // Adicione esta linha
 app.use(express.static('public'));
 app.use(cors());
 
@@ -37,4 +39,9 @@ app.get('/api/preview', async (req, res) => {
     }
 });
 
-module.exports = app;
+// Adicione isso logo após os middlewares
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
