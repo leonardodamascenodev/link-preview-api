@@ -2,44 +2,63 @@ const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
+const NodeCache = require('node-cache');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 const app = express();
-const express = require('express');
-const path = require('path'); // Adicione esta linha
-app.use(express.static('public'));
+const cache = new NodeCache({ stdTTL: 3600 });
+
+// Middlewares
+app.use(express.json());
 app.use(cors());
 
-app.get('/api/preview', async (req, res) => {
+// Limite de Requisições
+const limiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 15
+});
+
+// Serve arquivos estáticos da pasta public
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Rota da API
+app.get('/api/preview', limiter, async (req, res) => {
     const targetUrl = req.query.url;
-    
+
+    if (!targetUrl) return res.status(400).json({ error: 'URL necessária' });
+
+    const cachedData = cache.get(targetUrl);
+    if (cachedData) return res.status(200).json(cachedData);
+
     try {
-        // Tenta primeiro com Axios (mais rápido)
-        let html;
-        try {
-            const response = await axios.get(targetUrl, { timeout: 3000 });
-            html = response.data;
-        } catch (err) {
-            // Se falhar (bloqueio ou erro), tenta com Puppeteer
-            console.log('Axios falhou, tentando via Puppeteer...');
-        }
+        const response = await axios.get(targetUrl, {
+            timeout: 5000,
+            headers: { 'User-Agent': 'facebookexternalhit/1.1' }
+        });
 
-        const $ = cheerio.load(html);
+        const $ = cheerio.load(response.data);
         
-        // Extração dos dados (mesma lógica de antes)
-        const title = $('meta[property="og:title"]').attr('content') || $('title').text();
-        const image = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content');
-        const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || $('p').first().text();
-        const siteName = $('meta[property="og:site_name"]').attr('content');
-        const themeColor = $('meta[name="theme-color"]').attr('content') || null;
+        const previewData = {
+            title: $('meta[property="og:title"]').attr('content') || $('title').text(),
+            description: $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || $('p').first().text().substring(0, 150),
+            image: $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content'),
+            site_name: $('meta[property="og:site_name"]').attr('content'),
+            original_url: targetUrl
+        };
 
-        return res.status(200).json({ title, image, description, site_name: siteName, theme_color: themeColor, original_url: targetUrl });
+        cache.set(targetUrl, previewData);
+        return res.status(200).json(previewData);
 
     } catch (error) {
-        return res.status(500).json({ error: 'Falha ao processar o site, mesmo com Puppeteer.' });
+        return res.status(500).json({ error: 'Erro ao processar URL' });
     }
 });
 
-// Adicione isso logo após os middlewares
+// Rota para servir o index.html na raiz
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// ESSENCIAL PARA VERCEL: Exportar o app, NÃO usar app.listen
+module.exports = app;
