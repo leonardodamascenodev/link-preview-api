@@ -1,0 +1,56 @@
+const express = require('express');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const puppeteer = require('puppeteer'); // Nova dependência
+const cors = require('cors');
+
+const app = express();
+app.use(express.static('public'));
+app.use(cors());
+
+// Função de busca via Navegador Real (Puppeteer)
+async function fetchWithPuppeteer(url) {
+    const browser = await puppeteer.launch({ headless: "new" }); // "new" para performance
+    const page = await browser.newPage();
+    
+    // Finge ser um navegador real
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+    const html = await page.content();
+    await browser.close();
+    return html;
+}
+
+app.get('/api/preview', async (req, res) => {
+    const targetUrl = req.query.url;
+    
+    try {
+        // Tenta primeiro com Axios (mais rápido)
+        let html;
+        try {
+            const response = await axios.get(targetUrl, { timeout: 3000 });
+            html = response.data;
+        } catch (err) {
+            // Se falhar (bloqueio ou erro), tenta com Puppeteer
+            console.log('Axios falhou, tentando via Puppeteer...');
+            html = await fetchWithPuppeteer(targetUrl);
+        }
+
+        const $ = cheerio.load(html);
+        
+        // Extração dos dados (mesma lógica de antes)
+        const title = $('meta[property="og:title"]').attr('content') || $('title').text();
+        const image = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content');
+        const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || $('p').first().text();
+        const siteName = $('meta[property="og:site_name"]').attr('content');
+        const themeColor = $('meta[name="theme-color"]').attr('content') || null;
+
+        return res.status(200).json({ title, image, description, site_name: siteName, theme_color: themeColor, original_url: targetUrl });
+
+    } catch (error) {
+        return res.status(500).json({ error: 'Falha ao processar o site, mesmo com Puppeteer.' });
+    }
+});
+
+app.listen(3000, () => console.log('Servidor rodando com Puppeteer!'));
