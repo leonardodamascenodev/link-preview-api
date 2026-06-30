@@ -24,4 +24,4 @@ Esta API resolve a dor de cabeça de desenvolvedores front-end que precisam exib
 
 1. Clone este repositório:
    ```bash
-   git clone [https://github.com/SEU_USUARIO/link-preview-api.git](https://github.com/SEU_USUARIO/link-preview-api.git)
+   git clone [https://github.com/leonardodamascenodev/link-preview-api.git](https://github.com/leonardodamascenodev/link-preview-api.git)
